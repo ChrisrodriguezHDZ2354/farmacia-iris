@@ -27,6 +27,7 @@
           <option value="General">Producto general (Farmacia.Producto · IVA 16 %)</option>
           <option value="Medicamento">Medicamento (Farmacia.Medicamento · IVA 0 %)</option>
           <option value="Controlado">Medicamento controlado (Farmacia.MedicamentoControlado)</option>
+          <option value="Refrigerado">Medicamento refrigerado (Farmacia.MedicamentoRefrigerado · IVA 0 %)</option>
         </select>
       </label>
       <div class="campos">
@@ -52,6 +53,10 @@
         <label for="grupo">Grupo
           <select id="grupo"><option>Antibiotico</option><option>Psicotropico</option><option>Estupefaciente</option></select>
         </label>
+      </fieldset>
+      <fieldset id="datos-ref" hidden>
+        <legend>Datos de Medicamento refrigerado</legend>
+        <label for="temperatura">Temperatura máxima (°C)<input id="temperatura" type="number"></label>
       </fieldset>
       <div id="msg-producto"></div>
       <button class="boton" type="submit">Guardar producto</button>
@@ -104,6 +109,7 @@ $("#tipo").addEventListener("change", () => {
   const t = $("#tipo").value;
   $("#datos-med").hidden = t === "General";
   $("#datos-ctrl").hidden = t !== "Controlado";
+  $("#datos-ref").hidden = t !== "Refrigerado";
 });
 
 // POST /productos
@@ -115,6 +121,7 @@ $("#form-producto").addEventListener("submit", async e => {
   };
   if (datos.tipo !== "General") Object.assign(datos, { sustancia: $("#sustancia").value.trim(), presentacion: $("#presentacion").value, concentracion: $("#concentracion").value.trim(), caducidad: $("#caducidad").value });
   if (datos.tipo === "Controlado") datos.grupo = $("#grupo").value;
+  if (datos.tipo === "Refrigerado") datos.temperaturaMax = $("#temperatura").value;
   try {
     const p = await api("/productos", "POST", datos);
     mensaje($("#msg-producto"), "Guardado como objeto " + p.clase + " con ID " + p.id + ".", "ok");

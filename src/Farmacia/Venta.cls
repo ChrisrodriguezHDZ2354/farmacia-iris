@@ -23,6 +23,9 @@ Property IVA As %Numeric(SCALE = 2);
 
 Property Total As %Numeric(SCALE = 2);
 
+/// Descuento aplicado por canje de puntos (cada punto vale $1).
+Property Descuento As %Numeric(SCALE = 2) [ InitialExpression = 0 ];
+
 /// Suma los importes y el IVA de todas las partidas.
 Method Calcular()
 {
@@ -76,6 +79,14 @@ ClassMethod Registrar(datos As %DynamicObject, Output venta As Farmacia.Venta) A
             set v.Receta.Fecha = $zdateh(r.fecha, 3, , , , , , , +$horolog)
         }
         do v.Calcular()
+                set v.Descuento = 0                                  // sin canje por defecto
+        if datos.canjear && $isobject(v.Cliente) {           // solo si lo pidieron y hay cliente
+            set maximo = v.Total \ 1                         // pesos enteros, sin pasar del total
+            set canje = $select(v.Cliente.Puntos < maximo: v.Cliente.Puntos, 1: maximo)   // sin pasar de sus puntos
+            set v.Descuento = canje                          // guarda cuanto se descuenta
+            set v.Total = v.Total - canje                    // total ya con descuento
+            set v.Cliente.Puntos = v.Cliente.Puntos - canje  // resta los puntos canjeados
+        }
         $$$ThrowOnError(v.%Save())
         if $isobject(v.Cliente) {
             set v.Cliente.Puntos = v.Cliente.Puntos + (v.Total \ 10)

@@ -25,6 +25,7 @@ XData UrlMap [ XMLNamespace = "http://www.intersystems.com/urlmap" ]
 <Route Url="/productos/:id/surtir" Method="POST" Call="SurtirProducto"/>
 <Route Url="/proveedores" Method="GET" Call="ListarProveedores"/>
 <Route Url="/proveedores" Method="POST" Call="CrearProveedor"/>
+<Route Url="/proveedores/:id/productos" Method="GET" Call="ProductosDeProveedor"/>
 <Route Url="/clientes" Method="GET" Call="ListarClientes"/>
 <Route Url="/clientes" Method="POST" Call="CrearCliente"/>
 <Route Url="/ventas" Method="GET" Call="ListarVentas"/>
@@ -69,6 +70,7 @@ ClassMethod ProductoJSON(p As Farmacia.Producto) As %DynamicObject
         set o.caducidad = $zdate(p.Caducidad, 3), o.caducado = (p.Caducado() = 1)
     }
     if p.%IsA("Farmacia.MedicamentoControlado") set o.grupo = p.Grupo
+        if p.%IsA("Farmacia.MedicamentoRefrigerado") set o.temperaturaMax = p.TemperaturaMax
     quit o
 }
 
@@ -124,7 +126,7 @@ ClassMethod ListarProductos() As %Status
 ClassMethod CrearProducto() As %Status
 {
     set d = ..Cuerpo()
-    set clase = $case(d.tipo, "Medicamento": "Farmacia.Medicamento", "Controlado": "Farmacia.MedicamentoControlado", : "Farmacia.Producto")
+        set clase = $case(d.tipo, "Medicamento": "Farmacia.Medicamento", "Controlado": "Farmacia.MedicamentoControlado", "Refrigerado": "Farmacia.MedicamentoRefrigerado", : "Farmacia.Producto")
     set p = $classmethod(clase, "%New")                // crea un objeto de la clase elegida
     set p.Codigo = d.codigo, p.Nombre = d.nombre, p.Precio = d.precio
     set p.Existencia = +d.existencia
@@ -135,6 +137,7 @@ ClassMethod CrearProducto() As %Status
         set p.Caducidad = $zdateh(d.caducidad, 3, , , , , , , "")
     }
     if p.%IsA("Farmacia.MedicamentoControlado") set p.Grupo = d.grupo
+        if p.%IsA("Farmacia.MedicamentoRefrigerado") set p.TemperaturaMax = d.temperaturaMax
     set sc = p.%Save()                                 // VALIDA y guarda
     if $$$ISERR(sc) quit ..Fallo(sc)
     write ..ProductoJSON(p).%ToJSON()
@@ -175,6 +178,20 @@ ClassMethod CrearProveedor() As %Status
     set sc = p.%Save()
     if $$$ISERR(sc) quit ..Fallo(sc)
     write {"id": (p.%Id()), "nombre": (p.Nombre)}.%ToJSON()
+    quit $$$OK
+}
+
+ClassMethod ProductosDeProveedor(id As %String) As %Status
+{
+    set prov = ##class(Farmacia.Proveedor).%OpenId(id)
+    if '$isobject(prov) quit ..Fallo($$$ERROR($$$GeneralError, "No existe el proveedor "_id), "404 Not Found")
+    set lista = [], key = ""
+    for {
+        set p = prov.Productos.GetNext(.key)
+        quit:key=""
+        do lista.%Push(..ProductoJSON(p))
+    }
+    write {"proveedor": (prov.Nombre), "productos": (lista)}.%ToJSON()
     quit $$$OK
 }
 
